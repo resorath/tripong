@@ -1,0 +1,11 @@
+<script src="node_modules/socket.io/node_modules/socket.io-client/dist/socket.io.js"></script>
+<script>
+  var socket = io.connect('http://localhost:8000/');
+  socket.on('connect',function(){
+    socket.emit('message', 'Hello server');
+  });
+
+  socket.on('news', function(msg) {
+    alert('News from server: ' + msg.hello);
+  });
+</script>
