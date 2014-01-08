@@ -1,5 +1,6 @@
 <head>
 	<script src="http://code.jquery.com/jquery-1.10.1.min.js"></script>
+  <script src="node_modules/socket.io/node_modules/socket.io-client/dist/socket.io.js"></script>
   <style>
     body {
     }
@@ -7,6 +8,48 @@
 </head><body>
 <canvas id="tripong" width="800" height="500"></canvas>
 <script>
+
+
+  var pressedkeys = [];
+  var networkkeys = [];
+
+  var networkplayers = [];
+
+  var socket = io.connect('http://localhost:8000/');
+    socket.on('connect',function(){
+      socket.emit('greet', 'hello');
+    });
+
+    socket.on('connected clients', function(clients){
+      JSON.parse(clients).forEach(function(client){
+        console.log("Existing client: " + client);
+        networkkeys[client] = [];
+        createPlayer(client);
+      });
+    });
+
+    socket.on('greet',function(data){
+      console.log("greet: " + data);
+    });
+
+    socket.on('keydown',function(data){
+      console.log("keydown: " + data.key);
+      networkkeys[data.client][data.key] = true;
+    });
+
+    socket.on('keyup',function(data){
+      console.log("keyup: " + data.key);
+      delete networkkeys[data.client][data.key];
+    });
+
+    socket.on('join',function(data){
+      console.log("join: " + data);
+      networkkeys[data] = [];
+      createPlayer(client);
+
+    });
+
+
     window.requestAnimFrame = (function(callback) {
       return window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame || window.oRequestAnimationFrame || window.msRequestAnimationFrame ||
       function(callback) {
@@ -15,14 +58,20 @@
     })();
 
 
-    var pressedkeys = [];
-
   $(document.body).keydown(function (evt) {
+    if(!(evt.keyCode in pressedkeys))
+    {
     	pressedkeys[evt.keyCode] = true;
+      socket.emit('keydown', evt.keyCode);
+    }
   });
 
   $(document.body).keyup(function (evt) {
-  	delete pressedkeys[evt.keyCode];
+    if(evt.keyCode in pressedkeys)
+    {
+  	   delete pressedkeys[evt.keyCode];
+      socket.emit('keyup', evt.keyCode);
+    }
   });
 
     function drawRectangle(playerPaddle, context) {
@@ -48,6 +97,22 @@
       context.stroke();
     }
 
+    function createPlayer(client)
+    {
+      var networkPaddle =
+      {
+        clientid: client,
+        x: 120,
+        y: 70,
+        width: 10,
+        height: 100,
+        speed: 2,
+      }
+
+      networkplayers.push(networkPaddle);
+
+    }
+
     function movePaddle(obj, deltaX, deltaY)
     {
 
@@ -68,6 +133,13 @@
     {
       obj.x += deltaX;
       obj.y += deltaY;
+    }
+
+
+    function net_handleOtherPlayersInput()
+    {
+
+
     }
 
     function handleInput()
@@ -151,6 +223,12 @@
       drawRectangle(playerPaddle, context);
     }
 
+    function drawNetworkPlayers()
+    {
+
+
+    }
+
     function drawBoard()
     {
 
@@ -231,6 +309,8 @@
 
       drawPlayer();
 
+      drawNetworkPlayers();
+
       drawObjective();
 
       gameticks++;
@@ -270,6 +350,8 @@
 
     drawRectangle(playerPaddle, context);
     drawBall(ball, context);
+
+
 
     animate(playerPaddle, canvas, context);
 </script>
