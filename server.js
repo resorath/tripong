@@ -20,8 +20,13 @@ io.sockets.on('connection', function (socket) {
       socket.broadcast.emit('keydown', {client: socket.id, key: data});
   });
 
-  socket.on('keydown', function (data) {
+  socket.on('keyup', function (data) {
       console.log('keydown event ' + socket.id + " message: " + data);
       socket.broadcast.emit('keyup', {client: socket.id, key: data});
+  });
+
+  socket.on('disconnect', function (data) {
+  	socket.broadcast.emit('leave', socket.id);
+
   });
 });

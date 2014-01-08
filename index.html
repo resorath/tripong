@@ -23,7 +23,6 @@
     socket.on('connected clients', function(clients){
       JSON.parse(clients).forEach(function(client){
         console.log("Existing client: " + client);
-        networkkeys[client] = [];
         createPlayer(client);
       });
     });
@@ -33,19 +32,31 @@
     });
 
     socket.on('keydown',function(data){
-      console.log("keydown: " + data.key);
-      networkkeys[data.client][data.key] = true;
+      console.log("keydown: " + data.client + " " + data.key);
+
+      networkkeys.forEach(function(o){if (o.clientid === data.client) o[String.fromCharCode(data.key)] = true;} );
+
+      console.log(networkkeys);
+
     });
 
     socket.on('keyup',function(data){
-      console.log("keyup: " + data.key);
-      delete networkkeys[data.client][data.key];
+      console.log("keyup: " + data.client + " " + data.key);
+
+      networkkeys.forEach(function(o){if (o.clientid === data.client) o[String.fromCharCode(data.key)] = false;} );
+
+      console.log(networkkeys)
     });
 
     socket.on('join',function(data){
       console.log("join: " + data);
-      networkkeys[data] = [];
-      createPlayer(client);
+      createPlayer(data);
+
+    });
+
+    socket.on('leave', function(data){
+      console.log("leave: " + data);
+      deletePlayer(data);
 
     });
 
@@ -62,6 +73,7 @@
     if(!(evt.keyCode in pressedkeys))
     {
     	pressedkeys[evt.keyCode] = true;
+      console.log("keydown " + evt.keyCode);
       socket.emit('keydown', evt.keyCode);
     }
   });
@@ -70,7 +82,8 @@
     if(evt.keyCode in pressedkeys)
     {
   	   delete pressedkeys[evt.keyCode];
-      socket.emit('keyup', evt.keyCode);
+       console.log("keyup" + evt.keyCode);
+       socket.emit('keyup', evt.keyCode);
     }
   });
 
@@ -99,6 +112,7 @@
 
     function createPlayer(client)
     {
+      console.log("Creating network player: " + client);
       var networkPaddle =
       {
         clientid: client,
@@ -110,6 +124,38 @@
       }
 
       networkplayers.push(networkPaddle);
+
+      var networkkey = 
+      {
+        clientid: client,
+        A: false,
+        W: false,
+        S: false,
+        D: false
+      }
+
+      networkkeys.push(networkkey);
+
+    }
+
+    function deletePlayer(client)
+    {
+      var target;
+      networkkeys.forEach(function(o, i){
+        if (o.clientid === client) { 
+          target = i; 
+        }
+      });
+
+      delete networkkeys[target];
+
+      networkplayers.forEach(function(o, i){
+        if (o.clientid === client) { 
+          target = i;
+        }
+      });
+
+      delete networkplayers[target];
 
     }
 
@@ -138,7 +184,38 @@
 
     function net_handleOtherPlayersInput()
     {
+        networkkeys.forEach(function(client){
+          
+          networkplayers.forEach(function(player){
 
+            if(player.clientid == client.clientid)
+            {
+              // W ( up )
+              if ( client.W ) {
+                movePaddle(player, 0, -playerPaddle.speed);//playerPaddle.y -= playerSpeed;
+              }
+
+              // S ( down )
+              if ( client.S ) {
+                movePaddle(player, 0, playerPaddle.speed);//playerPaddle.y += playerSpeed;
+              }
+
+              // A ( left )
+              if ( client.A ) {
+                movePaddle(player, -playerPaddle.speed, 0);//playerPaddle.x -= playerSpeed;
+              }
+
+              // D ( right )
+              if ( client.D ) {
+                movePaddle(player, playerPaddle.speed, 0);//playerPaddle.x += playerSpeed;
+              }
+
+            }
+
+          });
+
+
+        });
 
     }
 
@@ -225,6 +302,10 @@
 
     function drawNetworkPlayers()
     {
+      networkplayers.forEach(function(player){
+        drawRectangle(player, context);
+
+      });
 
 
     }
@@ -299,6 +380,8 @@
       // update
 
       handleInput();
+
+      net_handleOtherPlayersInput();
 
       runGameRules();
 
