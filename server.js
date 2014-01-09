@@ -29,4 +29,12 @@ io.sockets.on('connection', function (socket) {
   	socket.broadcast.emit('leave', socket.id);
 
   });
+
+  socket.on('position', function (data){
+    socket.broadcast.emit('position', {client: socket.id, x: data.x, y: data.y});
+  })
+
+  socket.on('ball position', function (data){
+    socket.broadcast.emit('ball position', {client: socket.id, x: data.x, y: data.y, angle: data.angle});
+  });
 });

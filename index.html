@@ -15,16 +15,23 @@
 
   var networkplayers = [];
 
-  var socket = io.connect('http://localhost:8000/');
+  /* SOCKET COMMUNICATIONS
+  */
+  var socket = io.connect('http://192.168.1.111:8000/');
     socket.on('connect',function(){
       socket.emit('greet', 'hello');
     });
 
+    var isAlphaClient = true;
+    var isReady = false;
     socket.on('connected clients', function(clients){
+      console.log(clients);
       JSON.parse(clients).forEach(function(client){
         console.log("Existing client: " + client);
         createPlayer(client);
+        isAlphaClient = false;  // not the first guy connected, no control of ball
       });
+      isReady = true;
     });
 
     socket.on('greet',function(data){
@@ -36,16 +43,12 @@
 
       networkkeys.forEach(function(o){if (o.clientid === data.client) o[String.fromCharCode(data.key)] = true;} );
 
-      console.log(networkkeys);
-
     });
 
     socket.on('keyup',function(data){
       console.log("keyup: " + data.client + " " + data.key);
 
       networkkeys.forEach(function(o){if (o.clientid === data.client) o[String.fromCharCode(data.key)] = false;} );
-
-      console.log(networkkeys)
     });
 
     socket.on('join',function(data){
@@ -59,6 +62,43 @@
       deletePlayer(data);
 
     });
+
+    socket.on('position', function(data){
+      console.log(data);
+      networkplayers.forEach(function(o, i){
+        if (o.clientid === data.client) { 
+          o.x = data.x;
+          o.y = data.y;
+        }
+      });
+
+    });
+
+    socket.on('ball position', function(data){
+      console.log(data);
+      if(!isAlphaClient)
+      {
+        ball.x = data.x;
+        ball.y = data.y;
+        ball.angle = data.angle;
+      }
+
+    });
+
+    // announce position
+    window.setInterval(function(){
+      socket.emit('position', {x: playerPaddle.x, y: playerPaddle.y })
+      console.log("Emitted position: x: " + playerPaddle.x + " y: " + playerPaddle.y);
+    }, 1000);
+
+    // if alpha client, announce ball position
+    window.setInterval(function(){
+      if(isAlphaClient)
+      {
+        socket.emit('ball position', {x: ball.x, y: ball.y, angle: ball.angle});
+        console.log("emitted ball position");
+      }
+    }, 1000)
 
 
     window.requestAnimFrame = (function(callback) {
@@ -269,6 +309,22 @@
 
 		// bounce off paddles
 
+     //can only happen once every 5 ticks
+      if(collides(playerPaddle, ball) && (gameticks - lastcollision > 5))
+      {
+        ball.angle = 180 - ball.angle;
+        lastcollision = gameticks;
+      }
+
+      // bounce off other paddles
+      networkplayers.forEach(function(o, i){
+        if(collides(o, ball) && (gameticks - lastcollision > 5))
+        {
+          ball.angle = 180 - ball.angle;
+          lastcollision = gameticks;
+        }
+
+      });
 
 		// calculate deltas
     	radians = ball.angle * Math.PI / 180;
@@ -282,13 +338,6 @@
     var lastcollision = 0;
     function runGameRules()
     {
-      // check for collisions, which can only happen once every 5 ticks
-      if(collides(playerPaddle, ball) && (gameticks - lastcollision > 5))
-      {
-        ball.angle = 180 - ball.angle;
-        lastcollision = gameticks;
-      }
-
 
       calculateBallDeltas();
       moveBall(ball, ball.dx, ball.dy);
@@ -394,7 +443,8 @@
 
       drawNetworkPlayers();
 
-      drawObjective();
+      if(isReady) // only draw the ball if the network has picked a alpha client
+        drawObjective();
 
       gameticks++;
 
@@ -432,7 +482,7 @@
     }
 
     drawRectangle(playerPaddle, context);
-    drawBall(ball, context);
+    //drawBall(ball, context);
 
 
 
